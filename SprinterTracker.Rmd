@@ -1,0 +1,81 @@
+---
+title: "Sprinters Who have run sub-10 100m and sub-20 200m"
+author: "George Yang"
+date: "07/28/2019"
+output: 
+  html_document:
+        toc: yes
+        theme: cosmo
+        highlight: tango
+        code_folding: hide
+---
+
+```{r md_setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(include = TRUE)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+require(tidyverse)
+require(lubridate)
+require(knitr)
+require(XML)
+require(rvest)
+require(utf8)
+
+
+options(scipen = 999)
+```
+
+The 100 Meters and 200 Meters dash are among the most popular and pretigious events in all of Track and Field (Athletics). Often touted as a demonstration of physical limits of human beings, these two events have attracted the best atheletes in the world throughout history. Among them, Usain Bolt blazed a new trail currently holds the world records in both events set at 2009 Berlin World Championships with 9.58s in 100m and 19.19s in 200m, respectively. 
+
+There is a golden standard when gauging the strength of short distance sprinters in those two events. Specifically, running 100m under 10 seconds is considered the crown jewel of sprinting and running 200m under 20 seconds is also highly regarded. The goal of this project is to explore the atheletes who have done greatly in both 100m and 200m. 
+
+Currently, the women's world records are 10.49s and 21.34s set by Griffith Florence Joyner and no female atheletes have broken 10s and 20s yet. So this list only includes male atheletes.  
+
+# Data 
+## 1. 
+## Scraping data from http://www.alltime-athletics.com
+###Step 1, scraping 100m data
+
+```{r}
+url1 <- "http://www.alltime-athletics.com/m_100ok.htm"
+url2 <- "http://www.alltime-athletics.com/m_200ok.htm"
+
+transcribePage <- function(url) {
+  nd.tmp <- url %>% read_html() %>% html_nodes("pre") 
+  txt.ini <- nd.tmp[[1]] %>% html_text()
+  
+  recordlist <- unlist(strsplit(txt.ini, split = "\n"))
+  
+  df <- data.frame(matrix(ncol = 9, nrow = 0))
+  colnames(df) <- c('Rank','Time', 'Wind', 'Name', 'Nationality', 'Birthday', "Result", "City", "Date")
+  # Based on the position within each string, split the strings of records into columns with the following indicator vectors
+  start.vec <- c(9, 16, 27, 35, 66, 74, 86, 93, 123)
+  end.vec <- c(start.vec[2:9] - 1, 132)
+  
+  for (i in 2:length(recordlist)) {
+  df[i-1, ] <- as.character(sapply(substring(recordlist[i], start.vec, end.vec), trimws))
+  }
+  
+  return(df)
+}
+
+df1 <- transcribePage(url1)
+df2 <- transcribePage(url2)
+
+```
+
+
+```{r}
+df3 <- df1[1:969, ]
+df4 <- df2[1:340, ]
+
+
+df5 <- df3 %>% group_by(Name) %>% summarize(best_100m = min(substr(Time, 1, 4))) %>% ungroup()
+df6 <- df4 %>% group_by(Name) %>% summarize(best_200m = min(substr(Time, 1, 5))) %>% ungroup()
+
+df7 <- df5 %>% inner_join(df6, by = "Name")
+```
+
+
+
+
