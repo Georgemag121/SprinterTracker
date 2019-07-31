@@ -16,6 +16,7 @@ knitr::opts_chunk$set(include = TRUE)
 knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 require(tidyverse)
 require(lubridate)
+require(chron)
 require(knitr)
 require(XML)
 require(rvest)
@@ -24,6 +25,7 @@ require(utf8)
 
 options(scipen = 999)
 ```
+
 
 The 100 Meters and 200 Meters dash are among the most popular and pretigious events in all of Track and Field (Athletics). Often touted as a demonstration of physical limits of human beings, these two events have attracted the best atheletes in the world throughout history. Among them, Usain Bolt blazed a new trail currently holds the world records in both events set at 2009 Berlin World Championships with 9.58s in 100m and 19.19s in 200m, respectively. 
 
@@ -56,24 +58,54 @@ transcribePage <- function(url) {
   df[i-1, ] <- as.character(sapply(substring(recordlist[i], start.vec, end.vec), trimws))
   }
   
+  
+  
   return(df)
 }
 
-df1 <- transcribePage(url1)
-df2 <- transcribePage(url2)
 
+cleanDataset <- function(df) {
+  # Cleaning
+  # Converting birthday to date. With only 2 digits, year will be converted to 20th (68 - 99) or 21st (00 - 67) century. To make sure everything converts properly, I will append the additional digits first
+  df$Birthday <- ifelse(is.na(df$Birthday), NA, ifelse(as.numeric(substr(df$Birthday, 7, 8)) >= 20, gsub("\\.(..$)", "\\.19\\1", df$Birthday), gsub("\\.(..$)", "\\.20\\1", df$Birthday)))
+
+  df$Birthday <- as.Date(df$Birthday, format = "%d.%m.%Y")
+  df$Date <- as.Date(df$Date, format = "%d.%m.%Y")
+  df$Altitude <- grepl("A$", df$Time)
+  df$Time <- as.numeric(gsub("A$", "", df$Time))
+  df$Wind <- as.numeric(gsub("^\u00b1", "", df$Wind))
+  df$Age <- round(time_length(difftime(df$Date, df$Birthday), "years"), 2)
+  
+  return(df)
+}
+```
+
+
+
+```{r}
+cityCoord <- read.csv("data/city_coord.csv", encoding = "UTF-8", stringsAsFactors = F)
 ```
 
 
 ```{r}
-df3 <- df1[1:969, ]
-df4 <- df2[1:340, ]
+df1 <- url1 %>% transcribePage() %>% left_join(cityCoord) %>% cleanDataset()
+df2 <- url2 %>% transcribePage() %>% left_join(cityCoord) %>% cleanDataset()
+```
 
 
-df5 <- df3 %>% group_by(Name) %>% summarize(best_100m = min(substr(Time, 1, 4))) %>% ungroup()
-df6 <- df4 %>% group_by(Name) %>% summarize(best_200m = min(substr(Time, 1, 5))) %>% ungroup()
+```{r}
+df1.inter <- url1 %>% transcribePage() %>% left_join(cityCoord)
+df2.inter <- url2 %>% transcribePage() %>% left_join(cityCoord)
 
-df7 <- df5 %>% inner_join(df6, by = "Name")
+df1 <- cleanDataset(df1.inter)
+df2 <- cleanDataset(df2.inter)
+
+
+df3 <- df1 %>% filter(Time <= 9.99) %>% group_by(Name) %>% summarize(best_100m = min(Time)) %>% ungroup()
+df4 <- df2 %>% filter(Time <= 19.99) %>% group_by(Name) %>% summarize(best_200m = min(Time)) %>% ungroup()
+
+df5 <- df3 %>% inner_join(df4, by = "Name")
+
 ```
 
 
