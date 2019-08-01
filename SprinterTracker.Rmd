@@ -58,21 +58,20 @@ transcribePage <- function(url) {
   df[i-1, ] <- as.character(sapply(substring(recordlist[i], start.vec, end.vec), trimws))
   }
   
-  
-  
   return(df)
 }
 
 
 cleanDataset <- function(df) {
   # Cleaning
+  df <- df[-which(df$Time == ""), ]
   # Converting birthday to date. With only 2 digits, year will be converted to 20th (68 - 99) or 21st (00 - 67) century. To make sure everything converts properly, I will append the additional digits first
   df$Birthday <- ifelse(is.na(df$Birthday), NA, ifelse(as.numeric(substr(df$Birthday, 7, 8)) >= 20, gsub("\\.(..$)", "\\.19\\1", df$Birthday), gsub("\\.(..$)", "\\.20\\1", df$Birthday)))
 
   df$Birthday <- as.Date(df$Birthday, format = "%d.%m.%Y")
   df$Date <- as.Date(df$Date, format = "%d.%m.%Y")
-  df$Altitude <- grepl("A$", df$Time)
-  df$Time <- as.numeric(gsub("A$", "", df$Time))
+  df$Altitude <- grepl("A", df$Time)
+  df$Time <- as.numeric(gsub("[Ay\\#]*$", "", df$Time))
   df$Wind <- as.numeric(gsub("^\u00b1", "", df$Wind))
   df$Age <- round(time_length(difftime(df$Date, df$Birthday), "years"), 2)
   
@@ -100,13 +99,15 @@ df2.inter <- url2 %>% transcribePage() %>% left_join(cityCoord)
 df1 <- cleanDataset(df1.inter)
 df2 <- cleanDataset(df2.inter)
 
+df.all <- bind_rows("100m" = df1, "200m" = df2, .id = "Event")
+
 
 df3 <- df1 %>% filter(Time <= 9.99) %>% group_by(Name) %>% summarize(best_100m = min(Time)) %>% ungroup()
 df4 <- df2 %>% filter(Time <= 19.99) %>% group_by(Name) %>% summarize(best_200m = min(Time)) %>% ungroup()
 
 df5 <- df3 %>% inner_join(df4, by = "Name")
 
-
+#write.csv(df.all, "data/Fastest_runs.csv", row.names = F, fileEncoding = "UTF-8")
 
 ```
 
